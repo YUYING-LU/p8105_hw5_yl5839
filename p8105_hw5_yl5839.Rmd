@@ -160,8 +160,19 @@ From the plot, the sample average of $\hat{\mu}$ across tests for which the null
 
 ```{r}
 url = "https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv"
-
 homi_df = read_csv(url)
-
+homi_df
 ```
+
+
+Q: Describe the raw data
+
+
+### Data Wrangling
+
+```{r}
+homi_df |> 
+  mutate(city_state = paste0(city, ', ', state))
+```
+
 
