@@ -11,11 +11,6 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 ```{r}
 library(tidyverse)
-knitr::opts_chunk$set(
-  fig.width = 6,
-  fig.asp = .6,
-  out.width = "90%"
-)
 
 theme_set(theme(legend.position = "bottom"))
 
@@ -41,7 +36,7 @@ birth_share = function(group_size){
 
 Running this function for 10000 times for each group size between 2 and 50, calculate the probability of birthday sharing and make the plot.
 
-```{r, fig.width=10, fig.height=3}
+```{r, fig.width=10, fig.height=5}
 set.seed(1)
 
 sim_results_df = 
@@ -65,13 +60,11 @@ sim_results_df |>
   geom_line()
 ```
 
-**Comment:**
-According to the picture based on the 10000 times simulation, we can see the probability that at least two people in the group will share a birthday increases as the group size increases. And the probability will converges to 1 when the group size is large. 
-
+**Comment:** According to the picture based on the 10000 times simulation, we can see the probability that at least two people in the group will share a birthday increases as the group size increases. And the probability will converges to 1 when the group size is large.
 
 # Problem 2
 
-Generate 5000 datasets, each with $n=30$ samples from $N(\mu=0,\sigma=5)$ and or each data set, calculate the sample mean $\hat{\mu}$ and p-value of the hypothesis test with $\alpha = 0.05$. 
+Generate 5000 datasets, each with $n=30$ samples from $N(\mu=0,\sigma=5)$ and or each data set, calculate the sample mean $\hat{\mu}$ and p-value of the hypothesis test with $\alpha = 0.05$.
 
 ```{r}
 set.seed(2)
@@ -91,6 +84,7 @@ norm_df =
 
 norm_df 
 ```
+
 The column named `estimate` represents $\hat{\mu}$.
 
 Then repeat the above process for $\mu = \{1,2,3,4,5,6\}$:
@@ -113,25 +107,25 @@ new_norm_df =
 
 ```
 
-Next we plot the proportion of times the null was rejected 
+Next we plot the proportion of times the null was rejected
 
 ```{r}
 new_norm_df |> 
   mutate(reject = p.value < 0.05) |> 
   group_by(mu_true) |> 
   summarise(reject_proportion = mean(reject)) |> 
-  ggplot(aes(x = mu_true, y = reject_proportion))+
-  geom_point()+
-  geom_line()+
-  xlab(expression(mu))+
+  ggplot(aes(x = mu_true, y = reject_proportion)) +
+  geom_point() +
+  geom_line() +
+  theme_minimal(base_size = 15) +
+  xlab(expression(mu)) +
   scale_x_continuous(breaks = 1:6)
   
 ```
 
-**Association:** When $\mu \in \{1,...,6\}$, a larger $\mu$ has a higher reject proportion.
+**Association:** When $\mu \in \{1,...,6\}$, a larger $\mu$ has a higher reject proportion and it converges to 1.
 
-
-Showing average $\mu$ and the average $\mu$ when null was rejected. v.s. true $\mu$
+Showing average $\hat{\mu}$ and the average $\hat{\mu}$ when null was rejected. v.s. true $\mu$
 
 ```{r, fig.width=6, fig.height=6}
 new_norm_df |> 
@@ -145,16 +139,17 @@ new_norm_df |>
     values_to = "hat_mu"
   ) |> 
   ggplot(aes(x = mu_true, y = hat_mu, color = type))+
-  geom_point(alpha = 0.5)+
-  geom_abline()+
-  xlab(expression(mu))+
-  ylab(expression(hat(mu)))+
-  scale_x_continuous(breaks = 1:6)+
-  scale_y_continuous(breaks = 1:6)
+  geom_point(alpha = 0.75) +
+  geom_abline(linetype = "dashed", size = .5, color = 'lightgrey') +
+  theme_minimal() +
+  xlab(expression(mu)) +
+  ylab(expression(hat(mu))) +
+  scale_x_continuous(breaks = 1:6) +
+  scale_y_continuous(breaks = 1:6) +
+  theme(legend.position = "bottom")
 ```
 
 From the plot, the sample average of $\hat{\mu}$ across tests for which the null is rejected isn't approximately equal to the true value of $\mu$, when the true $\mu$ is close to $0$. The reason is when calculating the average of the estimate $\hat{\mu}$ in the sample that the null was rejected (we call it `average_mu_rejected`), we actually excluded the estimate $\hat{\mu}$ that is approximate to 0. By the Law of Large Number theorem, the average of all the estimates $\hat{\mu}$ (we call it `average_mu`) converges to the true $\mu$. However, when we exclude the estimates close to 0, the rest average increases, leading to a estimating bias. Additionally, when the true $\mu$ is close to 0, excluding the estimate that was rejected can result in a more significant deviation of the `average_mu_rejected` from the true $\mu$. This exclusion creates a larger bias, as illustrated in the figure.
-
 
 # Problem 3
 
@@ -164,15 +159,85 @@ homi_df = read_csv(url)
 homi_df
 ```
 
-
-Q: Describe the raw data
-
+The raw data gathers homicides in 50 larges U.S. cities, containing `r nrow(homi_df)` rows and `r ncol(homi_df)` columns. Each row represents a case of homicide including its uid, reported date, information of the victim (first and last name, race, age, sex), city and state where the homicide took place, the latitude and longitude of this place, and the disposition of this case.
 
 ### Data Wrangling
 
 ```{r}
-homi_df |> 
-  mutate(city_state = paste0(city, ', ', state))
+summary_df = 
+  homi_df |> 
+  mutate(city_state = paste0(city, ', ', state)) |> 
+  group_by(city_state) |> 
+  summarise(
+    total_num = n(),
+    unsolved_num = sum(disposition %in% c("Closed without arrest", "Open/No arrest"))
+  )
+summary_df
 ```
 
+### `prop,test` for city of Baltimore, MD
+
+```{r}
+baltimore_df = 
+  summary_df |> 
+  filter(city_state == "Baltimore, MD") 
+
+prop_test_output = 
+  prop.test(baltimore_df$unsolved_num, baltimore_df$total_num)
+
+tidy_df = 
+  prop_test_output |> 
+  broom::tidy() 
+
+tidy_df |> 
+  select(estimate, conf.low, conf.high)
+```
+The estimate proportion of unsolved homicides is `r pull(tidy_df, estimate)`, and its confidence interval is [`r pull(tidy_df, conf.low)`, `r pull(tidy_df, conf.high)`].
+
+### `prop,test` for all cities
+
+```{r}
+prop_test_all = 
+  summary_df |> 
+  mutate(
+    prop_test = map2(unsolved_num, total_num, \(un_n, n) prop.test(un_n, n)),
+    prop_test = map(prop_test, broom::tidy)
+    ) |> 
+  unnest(prop_test) 
+
+prop_test_all
+
+prop_test_all|> 
+  mutate(
+    CI = paste0("[", round(conf.low,4),", ",round(conf.high,4),"]"),
+    estimate = round(estimate,4)
+  ) |> 
+  select(city_state, estimate, CI)
+```
+
+Make the plot for the prop.test result:
+
+```{r, fig.height= 12, fig.width=8}
+prop_test_all |> 
+  ggplot(aes(x = reorder(city_state, estimate), y = estimate)) +
+  geom_point(size = 2, color = "#DF6604") +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.3, color = "darkgray", size = 0.8) +
+  coord_flip() +
+  labs(
+    title = "Proportion of Unsolved Homicides by City",
+    x = "City",
+    y = "Proportion of Unsolved Homicides"
+  ) +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 18),  
+    axis.title.x = element_text(size = 14, face = "bold"),  
+    axis.title.y = element_text(size = 14, face = "bold"),  
+    axis.text.x = element_text(size = 12, color = "black"), 
+    axis.text.y = element_text(size = 12, color = "black"), 
+    panel.grid.major = element_line(color = "lightgray", size = 0.5),  
+    panel.grid.minor = element_blank()  
+  ) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))  
+```
 
